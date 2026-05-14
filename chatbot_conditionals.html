@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI English Tutor — Image Processing</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f1117;
+    --surface: #181c27;
+    --surface2: #1f2435;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.14);
+    --text: #eef0f7;
+    --muted: #8a90a8;
+    --accent: #4f7fff;
+    --accent-light: #7fa3ff;
+    --accent-bg: rgba(79,127,255,0.12);
+    --green: #3ecf8e;
+    --green-bg: rgba(62,207,142,0.1);
+    --amber: #f5a623;
+    --amber-bg: rgba(245,166,35,0.1);
+    --s1: #4f7fff;
+    --s2: #3ecf8e;
+    --s3: #b06fff;
+    --radius: 14px;
+    --radius-sm: 8px;
+  }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px 40px;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 28px;
+    max-width: 680px;
+    width: 100%;
+  }
+
+  .logo-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    background: var(--accent-bg);
+    border: 1px solid rgba(79,127,255,0.25);
+    border-radius: 20px;
+    padding: 4px 14px;
+    font-size: 12px;
+    color: var(--accent-light);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    font-weight: 600;
+    margin-bottom: 16px;
+  }
+
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent-light); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(24px, 5vw, 36px);
+    font-weight: 400;
+    line-height: 1.2;
+    color: var(--text);
+    margin-bottom: 10px;
+  }
+
+  h1 em { font-style: italic; color: var(--accent-light); }
+
+  .subtitle {
+    font-size: 14px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  .main {
+    width: 100%;
+    max-width: 680px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .scenario-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .scenarios {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+
+  .s-btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 12px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s;
+    color: var(--text);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .s-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .s-btn[data-s="1"]::before { background: linear-gradient(135deg, rgba(79,127,255,0.08), transparent); }
+  .s-btn[data-s="2"]::before { background: linear-gradient(135deg, rgba(62,207,142,0.08), transparent); }
+  .s-btn[data-s="3"]::before { background: linear-gradient(135deg, rgba(176,111,255,0.08), transparent); }
+
+  .s-btn:hover { border-color: var(--border2); transform: translateY(-1px); }
+  .s-btn:hover::before { opacity: 1; }
+
+  .s-btn.active[data-s="1"] { border-color: var(--s1); background: rgba(79,127,255,0.1); }
+  .s-btn.active[data-s="2"] { border-color: var(--s2); background: rgba(62,207,142,0.1); }
+  .s-btn.active[data-s="3"] { border-color: var(--s3); background: rgba(176,111,255,0.1); }
+
+  .s-icon { font-size: 22px; margin-bottom: 8px; display: block; }
+  .s-title { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+  .s-desc { font-size: 11px; color: var(--muted); line-height: 1.4; }
+
+  .s-btn.active[data-s="1"] .s-title { color: var(--s1); }
+  .s-btn.active[data-s="2"] .s-title { color: var(--s2); }
+  .s-btn.active[data-s="3"] .s-title { color: var(--s3); }
+
+  .chat-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .messages {
+    height: 380px;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    scroll-behavior: smooth;
+  }
+
+  .messages::-webkit-scrollbar { width: 4px; }
+  .messages::-webkit-scrollbar-track { background: transparent; }
+  .messages::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  .msg {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-width: 88%;
+    animation: fadeUp 0.25s ease;
+  }
+
+  @keyframes fadeUp { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform: translateY(0); } }
+
+  .msg.bot { align-self: flex-start; }
+  .msg.user { align-self: flex-end; }
+
+  .msg-sender {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    font-weight: 600;
+    color: var(--muted);
+    padding: 0 4px;
+  }
+
+  .msg.user .msg-sender { text-align: right; color: var(--accent-light); }
+
+  .msg-bubble {
+    padding: 12px 16px;
+    border-radius: var(--radius);
+    font-size: 14px;
+    line-height: 1.65;
+  }
+
+  .msg.bot .msg-bubble {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-bottom-left-radius: 4px;
+    color: var(--text);
+  }
+
+  .msg.user .msg-bubble {
+    background: var(--accent);
+    border-bottom-right-radius: 4px;
+    color: #fff;
+  }
+
+  .grammar-tag {
+    display: inline-block;
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-weight: 600;
+    margin-top: 6px;
+    letter-spacing: 0.04em;
+  }
+
+  .tag-1 { background: var(--accent-bg); color: var(--accent-light); border: 1px solid rgba(79,127,255,0.3); }
+  .tag-2 { background: var(--green-bg); color: var(--green); border: 1px solid rgba(62,207,142,0.3); }
+
+  .input-area {
+    border-top: 1px solid var(--border);
+    padding: 14px 16px;
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+    background: var(--surface);
+  }
+
+  .input-area textarea {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    padding: 10px 14px;
+    resize: none;
+    outline: none;
+    min-height: 44px;
+    max-height: 120px;
+    line-height: 1.5;
+    transition: border-color 0.2s;
+  }
+
+  .input-area textarea::placeholder { color: var(--muted); }
+  .input-area textarea:focus { border-color: var(--accent); }
+  .input-area textarea:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .send-btn {
+    background: var(--accent);
+    border: none;
+    border-radius: var(--radius-sm);
+    width: 44px;
+    height: 44px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+
+  .send-btn:hover { background: var(--accent-light); transform: scale(1.05); }
+  .send-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  .send-btn svg { width: 18px; height: 18px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  .status-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 16px;
+    border-top: 1px solid var(--border);
+    background: var(--bg);
+  }
+
+  .typing-indicator {
+    font-size: 12px;
+    color: var(--muted);
+    min-height: 18px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .typing-dots span {
+    display: inline-block;
+    width: 4px; height: 4px;
+    border-radius: 50%;
+    background: var(--muted);
+    animation: blink 1.2s infinite;
+  }
+  .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes blink { 0%,80%,100%{opacity:0.2} 40%{opacity:1} }
+
+  .counter {
+    font-size: 11px;
+    color: var(--muted);
+    display: flex;
+    gap: 12px;
+  }
+
+  .counter span { display: flex; align-items: center; gap: 4px; }
+  .count-badge { font-weight: 600; }
+  .c1-color { color: var(--accent-light); }
+  .c2-color { color: var(--green); }
+
+  .tip {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--amber);
+    border-radius: var(--radius-sm);
+    padding: 12px 16px;
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  .tip strong { color: var(--amber); font-weight: 600; }
+
+  @media (max-width: 500px) {
+    .scenarios { grid-template-columns: 1fr; }
+    .messages { height: 300px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-tag"><div class="dot"></div> AI English Tutor · Class 8</div>
+  <h1>Practice <em>Conditional Sentences</em><br>with AI</h1>
+  <p class="subtitle">Choose a scenario and start a conversation in English.<br>Your tutor will guide you through Type 1 and Type 2 conditionals.</p>
+</header>
+
+<div class="main">
+
+  <div>
+    <p class="scenario-label">Choose your scenario</p>
+    <div class="scenarios">
+      <button class="s-btn" data-s="1" onclick="selectScenario(1)">
+        <span class="s-icon">🎵</span>
+        <div class="s-title">Virtual concert</div>
+        <div class="s-desc">Find your friend in the crowd using AI</div>
+      </button>
+      <button class="s-btn" data-s="2" onclick="selectScenario(2)">
+        <span class="s-icon">🏭</span>
+        <div class="s-title">Factory QC</div>
+        <div class="s-desc">AI checks product quality on the line</div>
+      </button>
+      <button class="s-btn" data-s="3" onclick="selectScenario(3)">
+        <span class="s-icon">🌸</span>
+        <div class="s-title">Virtual park</div>
+        <div class="s-desc">Identify a flower with an AI app</div>
+      </button>
+    </div>
+  </div>
+
+  <div class="chat-box">
+    <div class="messages" id="messages">
+      <div class="msg bot">
+        <div class="msg-sender">AI Tutor</div>
+        <div class="msg-bubble">Hello! Welcome to Class 8. 👋<br><br>Choose one of the three scenarios above to start practicing. We will use <strong>conditional sentences</strong> to talk about AI and image processing.<br><br>Remember:<br>• <strong>Type 1</strong>: If + present simple, <em>will</em> + verb<br>• <strong>Type 2</strong>: If + past simple, <em>would</em> + verb<br><br>Good luck! 🚀</div>
+      </div>
+    </div>
+
+    <div class="input-area">
+      <textarea id="userInput" placeholder="Choose a scenario first..." disabled rows="1"
+        oninput="autoResize(this)"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg();}"></textarea>
+      <button class="send-btn" id="sendBtn" onclick="sendMsg()" disabled aria-label="Send">
+        <svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
+    </div>
+
+    <div class="status-bar">
+      <div class="typing-indicator" id="typingIndicator"></div>
+      <div class="counter">
+        <span>Type 1: <span class="count-badge c1-color" id="c1count">0</span></span>
+        <span>Type 2: <span class="count-badge c2-color" id="c2count">0</span></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="tip">
+    <strong>Tip:</strong> Try to use both conditional types in your conversation. Your tutor will tell you which one you used and ask follow-up questions to keep you practicing!
+  </div>
+
+</div>
+
+<script>
+const API_KEY = ['sk-or-v1-',29fa9d30d7dbc4e1e0d767910c7cee2ca0d70000e8598a84071d66be3a1d0e7c].join('');
+const API_URL = 'https://openrouter.ai/api/v1/chat/completions';
+
+const SCENARIOS = {
+  1: {
+    emoji: '🎵',
+    label: 'Virtual concert',
+    context: 'You are at a virtual concert with thousands of people and want to find your friend in the crowd using AI facial recognition.',
+    starter: "Great choice! 🎵 Imagine you are at a huge virtual concert and you cannot find your friend anywhere in the crowd. How do you think AI could help you? Try to use a conditional sentence — for example, start with \"If the AI...\" and see what happens!"
+  },
+  2: {
+    emoji: '🏭',
+    label: 'Factory QC',
+    context: 'A factory uses AI image processing to inspect and ensure the quality of products on an assembly line.',
+    starter: "Excellent choice! 🏭 You are now a manager in a smartphone factory. You want to use AI to check every phone for defects before it leaves the factory. How would AI help? Try to describe the situation using a conditional sentence!"
+  },
+  3: {
+    emoji: '🌸',
+    label: 'Virtual park',
+    context: 'You are on a virtual tour of a park and you see a beautiful flower you do not recognize. You want an AI app to identify it and tell you how to care for it.',
+    starter: "Wonderful! 🌸 You are walking through a virtual park and you spot an amazing flower — but you have no idea what it is called! How could AI help you? Use a conditional sentence to explain what would happen if you used an AI app!"
+  }
+};
+
+let currentScenario = null;
+let history = [];
+let waiting = false;
+let c1count = 0;
+let c2count = 0;
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+function selectScenario(n) {
+  if (waiting) return;
+  currentScenario = n;
+  document.querySelectorAll('.s-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector(`[data-s="${n}"]`).classList.add('active');
+  const input = document.getElementById('userInput');
+  input.disabled = false;
+  input.placeholder = 'Write your answer in English...';
+  document.getElementById('sendBtn').disabled = false;
+  c1count = 0; c2count = 0;
+  updateCounters();
+  history = [];
+  const s = SCENARIOS[n];
+  const msgs = document.getElementById('messages');
+  msgs.innerHTML = '';
+  addMsg(s.starter, 'bot');
+  history.push({ role: 'model', parts: [{ text: s.starter }] });
+  input.focus();
+}
+
+function updateCounters() {
+  document.getElementById('c1count').textContent = c1count;
+  document.getElementById('c2count').textContent = c2count;
+}
+
+function addMsg(text, who, tags) {
+  const msgs = document.getElementById('messages');
+  const wrap = document.createElement('div');
+  wrap.className = `msg ${who}`;
+  const sender = document.createElement('div');
+  sender.className = 'msg-sender';
+  sender.textContent = who === 'bot' ? 'AI Tutor' : 'You';
+  const bubble = document.createElement('div');
+  bubble.className = 'msg-bubble';
+  bubble.innerHTML = text.replace(/\n/g, '<br>');
+  if (tags && tags.length) {
+    tags.forEach(t => {
+      const tag = document.createElement('div');
+      tag.className = `grammar-tag ${t.cls}`;
+      tag.textContent = t.label;
+      bubble.appendChild(tag);
+    });
+  }
+  wrap.appendChild(sender);
+  wrap.appendChild(bubble);
+  msgs.appendChild(wrap);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+async function sendMsg() {
+  if (waiting || !currentScenario) return;
+  const input = document.getElementById('userInput');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  input.style.height = 'auto';
+  addMsg(text, 'user');
+  history.push({ role: 'user', parts: [{ text }] });
+  waiting = true;
+  document.getElementById('sendBtn').disabled = true;
+  input.disabled = true;
+  const ti = document.getElementById('typingIndicator');
+  ti.innerHTML = 'AI Tutor is thinking <div class="typing-dots"><span></span><span></span><span></span></div>';
+
+  const s = SCENARIOS[currentScenario];
+  const systemInstruction = `You are a friendly, encouraging English tutor for A2+/B1 level students at a Data Science and AI technical college in Argentina. Students are practicing conditional sentences in English in the context of AI image processing.
+
+SCENARIO: ${s.context}
+
+GRAMMAR FOCUS:
+- Type 1 (real/possible): If + present simple, will + base verb. Example: "If the AI scans the photo, it will find your friend."
+- Type 2 (imaginary/hypothetical): If + past simple, would + base verb. Example: "If the AI could scan the photo, it would find your friend."
+
+YOUR RESPONSE MUST:
+1. React warmly and naturally to what the student wrote (1 sentence).
+2. If they used a conditional sentence, identify the type (Type 1 or Type 2) briefly and positively. If not, gently encourage them to try.
+3. Add a very short grammar correction ONLY if there is a clear error — keep it simple and kind. Use the format: "Small tip: ..."
+4. Ask ONE follow-up question to push them to use the other conditional type or go deeper into the scenario.
+5. At the very end of your response, on a new line, add a tag: [TYPE1] if they used Type 1, [TYPE2] if they used Type 2, [NONE] if no conditional was used.
+
+Keep the total response under 90 words. Use simple, clear vocabulary. Be warm, brief, and motivating. Do NOT use markdown formatting like **bold** or bullet points in your response.`;
+
+  try {
+    const messages = [
+      { role: 'system', content: systemInstruction },
+      ...history.map(m => ({ role: m.role === 'model' ? 'assistant' : 'user', content: m.parts[0].text }))
+    ];
+
+    const body = {
+      model: 'meta-llama/llama-3.3-8b-instruct:free',
+      messages,
+      max_tokens: 300,
+      temperature: 0.7
+    };
+
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${API_KEY}`,
+        'HTTP-Referer': 'https://anapaulapino.github.io',
+        'X-Title': 'AI English Tutor'
+      },
+      body: JSON.stringify(body)
+    });
+
+    const data = await res.json();
+    let reply = data.choices?.[0]?.message?.content || 'Sorry, I could not respond. Please try again.';
+
+    const tags = [];
+    if (reply.includes('[TYPE1]')) { c1count++; tags.push({ cls: 'tag-1', label: 'Type 1 conditional detected!' }); reply = reply.replace('[TYPE1]', '').trim(); }
+    else if (reply.includes('[TYPE2]')) { c2count++; tags.push({ cls: 'tag-2', label: 'Type 2 conditional detected!' }); reply = reply.replace('[TYPE2]', '').trim(); }
+    else if (reply.includes('[NONE]')) { reply = reply.replace('[NONE]', '').trim(); }
+
+    updateCounters();
+    history.push({ role: 'model', parts: [{ text: reply }] });
+    addMsg(reply, 'bot', tags);
+  } catch(e) {
+    addMsg('Connection error. Please check your internet connection and try again.', 'bot');
+  }
+
+  ti.innerHTML = '';
+  waiting = false;
+  document.getElementById('sendBtn').disabled = false;
+  input.disabled = false;
+  input.focus();
+}
+</script>
+</body>
+</html>
